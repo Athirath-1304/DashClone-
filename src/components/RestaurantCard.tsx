@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Image from 'next/image';
 
 interface RestaurantCardProps {
   id: string;
@@ -15,9 +16,11 @@ export default function RestaurantCard({ id, name, description, imageUrl }: Rest
       className="bg-white rounded shadow hover:shadow-lg cursor-pointer transition flex flex-col"
       onClick={() => router.push(`/restaurant/${id}`)}
     >
-      <img
+      <Image
         src={imageUrl}
         alt={name}
+        width={320}
+        height={160}
         className="w-full h-40 object-cover rounded-t"
       />
       <div className="p-4 flex-1 flex flex-col">

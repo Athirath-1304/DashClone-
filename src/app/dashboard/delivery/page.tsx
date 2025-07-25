@@ -83,7 +83,6 @@ export default function DeliveryDashboard() {
       };
     }
     fetchDeliveries();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {

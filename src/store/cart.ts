@@ -18,7 +18,7 @@ interface CartState {
   clearCart: () => void;
 }
 
-export const useCart = create<CartState>((set: (fn: (state: CartState) => Partial<CartState>) => void, get: () => CartState) => ({
+export const useCart = create<CartState>((set: (fn: (state: CartState) => Partial<CartState>) => void) => ({
   items: [],
   total: 0,
   addItem: (item: Omit<CartItem, 'quantity'>) => {

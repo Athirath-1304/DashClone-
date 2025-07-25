@@ -22,7 +22,7 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error: signupError, user } = await signUpWithRole(email, password, role);
+    const { error: signupError } = await signUpWithRole(email, password, role);
     setLoading(false);
     if (signupError) {
       setError(signupError.message || "Signup failed");

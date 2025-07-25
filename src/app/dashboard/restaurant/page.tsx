@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
+import Image from 'next/image';
 
 interface Order {
   id: string;
@@ -14,7 +15,6 @@ interface Order {
 export default function RestaurantDashboard() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -36,7 +36,6 @@ export default function RestaurantDashboard() {
         setLoading(false);
         return;
       }
-      setRestaurantId(restData.id);
       // Fetch orders for this restaurant
       const { data: orderData } = await supabase
         .from("orders")
@@ -82,7 +81,6 @@ export default function RestaurantDashboard() {
       };
     }
     fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -135,7 +133,7 @@ export default function RestaurantDashboard() {
                 <div className="mb-2">
                   {order.items.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 text-sm mb-1">
-                      <img src={item.image_url} alt={item.name} className="w-8 h-8 object-cover rounded" />
+                      <Image src={item.image_url} alt={item.name} width={32} height={32} className="w-8 h-8 object-cover rounded" />
                       <span className="font-medium">{item.name}</span>
                       <span className="text-gray-500">× {item.quantity}</span>
                       <span className="ml-auto">${(item.price * item.quantity).toFixed(2)}</span>

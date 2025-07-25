@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useCart } from "@/store/cart";
 import { toast } from "sonner";
+import Image from 'next/image';
 
 interface Restaurant {
   id: string;
@@ -79,9 +80,11 @@ export default function RestaurantDetailPage() {
   return (
     <div className="p-4 max-w-3xl mx-auto">
       <div className="mb-6">
-        <img
+        <Image
           src={restaurant.image_url}
           alt={restaurant.name}
+          width={128}
+          height={128}
           className="w-full h-48 object-cover rounded mb-4"
         />
         <h1 className="text-3xl font-bold mb-2">{restaurant.name}</h1>
@@ -94,9 +97,11 @@ export default function RestaurantDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {menuItems.map((item) => (
             <div key={item.id} className="bg-white rounded shadow p-4 flex flex-col">
-              <img
+              <Image
                 src={item.image_url}
                 alt={item.name}
+                width={128}
+                height={128}
                 className="w-full h-32 object-cover rounded mb-2"
               />
               <h3 className="font-bold text-lg mb-1">{item.name}</h3>

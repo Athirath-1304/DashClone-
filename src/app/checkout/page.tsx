@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { toast } from "sonner";
+import Image from 'next/image';
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
@@ -116,9 +117,11 @@ export default function CheckoutPage() {
                 key={item.id}
                 className="flex items-center bg-white rounded shadow p-3 gap-4"
               >
-                <img
+                <Image
                   src={item.image_url}
                   alt={item.name}
+                  width={64}
+                  height={64}
                   className="w-16 h-16 object-cover rounded"
                 />
                 <div className="flex-1 min-w-0">
