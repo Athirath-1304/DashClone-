@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface Delivery {
   id: string;
@@ -23,7 +24,7 @@ export default function DeliveryDashboard() {
   useEffect(() => {
     async function fetchDeliveries() {
       setLoading(true);
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
       // Get current user
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
@@ -37,10 +38,13 @@ export default function DeliveryDashboard() {
         .eq("delivery_agent_id", userData.user.id)
         .order("created_at", { ascending: false });
       // Fix: flatten order if returned as array
-      const fixedDeliveries = (deliveryData || []).map((d: any) => ({
-        ...d,
-        order: Array.isArray(d.order) ? d.order[0] : d.order,
-      }));
+      const fixedDeliveries = (deliveryData || []).map((d: unknown) => {
+        const delivery = d as Delivery;
+        return {
+          ...delivery,
+          order: Array.isArray((delivery as any).order) ? (delivery as any).order[0] : (delivery as any).order,
+        };
+      });
       setDeliveries(fixedDeliveries);
       setLoading(false);
 
@@ -49,26 +53,26 @@ export default function DeliveryDashboard() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "deliveries", filter: `delivery_agent_id=eq.${userData.user.id}` },
-          (payload) => {
+          (payload: { eventType: string; new: unknown; old: unknown }) => {
             if (payload.eventType === "INSERT") {
-              setDeliveries((prev) => [payload.new, ...prev]);
+              setDeliveries((prev) => [payload.new as Delivery, ...prev]);
               toast.success("New delivery assigned!");
             } else if (payload.eventType === "UPDATE") {
               setDeliveries((prev) =>
                 prev.map((d) =>
-                  d.id === payload.new.id
+                  d.id === (payload.new as Delivery).id
                     ? ({
                         ...d,
-                        ...payload.new,
-                        order: payload.new.order ?? d.order,
-                        status: payload.new.status ?? d.status,
-                        created_at: payload.new.created_at ?? d.created_at,
+                        ...(payload.new as Delivery),
+                        order: (payload.new as Delivery).order ?? d.order,
+                        status: (payload.new as Delivery).status ?? d.status,
+                        created_at: (payload.new as Delivery).created_at ?? d.created_at,
                       } as Delivery)
                     : d
                 )
               );
-              if (payload.new.status !== payload.old.status) {
-                toast.info(`Delivery status updated: ${payload.new.status}`);
+              if ((payload.new as Delivery).status !== (payload.old as Delivery).status) {
+                toast.info(`Delivery status updated: ${(payload.new as Delivery).status}`);
               }
             }
           }
@@ -83,7 +87,7 @@ export default function DeliveryDashboard() {
   }, []);
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.from("deliveries").update({ status: newStatus }).eq("id", deliveryId);
     if (error) {
       toast.error("Failed to update delivery status");
@@ -144,7 +148,7 @@ export default function DeliveryDashboard() {
                 <div className="font-medium mb-1">Restaurant: {delivery.order?.restaurant?.name || "-"}</div>
                 {delivery.order?.items?.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 text-sm mb-1">
-                    <img src={item.image_url} alt={item.name} className="w-8 h-8 object-cover rounded" />
+                    <Image src={item.image_url} alt={item.name} width={32} height={32} className="w-8 h-8 object-cover rounded" />
                     <span className="font-medium">{item.name}</span>
                     <span className="text-gray-500">× {item.quantity}</span>
                     <span className="ml-auto">${(item.price * item.quantity).toFixed(2)}</span>

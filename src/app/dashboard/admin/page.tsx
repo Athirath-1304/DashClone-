@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Bar } from "react-chartjs-2";
+import Image from "next/image";
 
 interface Order {
   id: string;
@@ -51,7 +52,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const supabase = createSupabaseBrowserClient();
+      const supabase = createClient();
       // Check if user is admin
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
@@ -76,14 +77,20 @@ export default function AdminDashboard() {
         .select("id, customer_id, restaurant_id, items, total_price, status, created_at, restaurant:restaurant_id (name), customer:customer_id (email), deliveries(id)")
         .eq("status", "ready_for_delivery");
       // Only show orders with no delivery
-      const filteredOrders = (orderData || []).filter((o: any) => !o.deliveries || o.deliveries.length === 0);
+      const filteredOrders = (orderData || []).filter((o: unknown) => {
+        const order = o as Order;
+        return !order.deliveries || order.deliveries.length === 0;
+      });
       // Fix: flatten restaurant, customer, and deliveries if returned as arrays
-      const fixedOrders = filteredOrders.map((o: any) => ({
-        ...o,
-        restaurant: Array.isArray(o.restaurant) ? o.restaurant[0] : o.restaurant,
-        customer: Array.isArray(o.customer) ? o.customer[0] : o.customer,
-        deliveries: Array.isArray(o.deliveries) ? o.deliveries : [],
-      }));
+      const fixedOrders = filteredOrders.map((o: unknown) => {
+        const order = o as Order;
+        return {
+          ...order,
+          restaurant: Array.isArray(order.restaurant) ? order.restaurant[0] : order.restaurant,
+          customer: Array.isArray(order.customer) ? order.customer[0] : order.customer,
+          deliveries: Array.isArray(order.deliveries) ? order.deliveries : [],
+        };
+      });
       setOrders(fixedOrders);
       // Fetch all delivery agents
       const { data: agentData } = await supabase
@@ -96,10 +103,13 @@ export default function AdminDashboard() {
         .from("restaurants")
         .select("id, name, description, owner:owner_id (email), created_at, is_approved")
         .order("created_at", { ascending: false });
-      setRestaurants((restData || []).map((r: any) => ({
-        ...r,
-        owner: Array.isArray(r.owner) ? r.owner[0] : r.owner,
-      })));
+      setRestaurants((restData || []).map((r: unknown) => {
+        const restaurant = r as Restaurant;
+        return {
+          ...restaurant,
+          owner: Array.isArray(restaurant.owner) ? restaurant.owner[0] : restaurant.owner,
+        };
+      }));
       // Fetch analytics counts
       const [customersRes, restaurantsRes, ordersRes, deliveriesRes, ordersByDayRes] = await Promise.all([
         supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "customer"),
@@ -127,7 +137,7 @@ export default function AdminDashboard() {
       return;
     }
     setAssigning(orderId);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.from("deliveries").insert({
       order_id: orderId,
       delivery_agent_id: agentId,
@@ -145,7 +155,7 @@ export default function AdminDashboard() {
 
   const handleApprove = async (restaurantId: string) => {
     setApproving(restaurantId);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.from("restaurants").update({ is_approved: true }).eq("id", restaurantId);
     if (error) {
       toast.error("Failed to approve restaurant");
@@ -194,7 +204,7 @@ export default function AdminDashboard() {
                 <div className="font-medium mb-1">Customer: {order.customer?.email || "-"}</div>
                 {order.items.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 text-sm mb-1">
-                    <img src={item.image_url} alt={item.name} className="w-8 h-8 object-cover rounded" />
+                    <Image src={item.image_url} alt={item.name} width={32} height={32} className="w-8 h-8 object-cover rounded" />
                     <span className="font-medium">{item.name}</span>
                     <span className="text-gray-500">× {item.quantity}</span>
                     <span className="ml-auto">${(item.price * item.quantity).toFixed(2)}</span>
