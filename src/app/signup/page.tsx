@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithRoleClient } from "@/lib/auth-client";
+import useSWR from 'swr';
 
 const roles = [
   { value: "customer", label: "Customer" },
@@ -17,6 +18,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { mutate } = useSWR('/api/stats');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,6 +30,7 @@ export default function SignupPage() {
       setError(signupError.message || "Signup failed");
       return;
     }
+    mutate(); // Revalidate stats after successful signup
     // Redirect to dashboard based on role
     router.push(`/dashboard/${role}`);
   }

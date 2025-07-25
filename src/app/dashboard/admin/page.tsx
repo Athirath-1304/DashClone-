@@ -4,6 +4,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Bar } from "react-chartjs-2";
 import Image from "next/image";
+import useSWR from 'swr';
 
 interface Order {
   id: string;
@@ -49,6 +50,8 @@ export default function AdminDashboard() {
     deliveries: 0,
     ordersByDay: [] as { date: string; count: number }[],
   });
+
+  const { mutate } = useSWR('/api/stats');
 
   useEffect(() => {
     async function fetchData() {
@@ -152,6 +155,7 @@ export default function AdminDashboard() {
     toast.success("Delivery assigned successfully");
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
     setAssigning(null);
+    mutate(); // Revalidate stats after successful insert
   };
 
   const handleApprove = async (restaurantId: string) => {
