@@ -52,7 +52,7 @@ export default function RestaurantDashboard() {
           { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restData.id}` },
           (payload) => {
             if (payload.eventType === "INSERT") {
-              setOrders((prev) => [payload.new, ...prev]);
+              setOrders((prev) => [payload.new as Order, ...prev]);
               toast.success("New order received!");
             } else if (payload.eventType === "UPDATE") {
               setOrders((prev) =>
