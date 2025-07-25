@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Bar } from "react-chartjs-2";
 import Image from "next/image";
@@ -15,6 +15,7 @@ interface Order {
   created_at: string;
   restaurant: { name: string };
   customer: { email: string };
+  deliveries?: Array<{ id: string }>;
 }
 
 interface Agent {
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const supabase = createClient();
+      const supabase = createSupabaseBrowserClient();
       // Check if user is admin
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
       return;
     }
     setAssigning(orderId);
-    const supabase = createClient();
+    const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from("deliveries").insert({
       order_id: orderId,
       delivery_agent_id: agentId,
@@ -155,7 +156,7 @@ export default function AdminDashboard() {
 
   const handleApprove = async (restaurantId: string) => {
     setApproving(restaurantId);
-    const supabase = createClient();
+    const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from("restaurants").update({ is_approved: true }).eq("id", restaurantId);
     if (error) {
       toast.error("Failed to approve restaurant");
