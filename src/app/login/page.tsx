@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, getUserRole } from "@/lib/auth";
+import { signInClient, getUserRoleClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,14 +14,14 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { data, error: loginError } = await signIn(email, password);
+    const { data, error: loginError } = await signInClient(email, password);
     setLoading(false);
     if (loginError || !data?.user) {
       setError(loginError?.message || "Login failed");
       return;
     }
     // Fetch user role from users table
-    const role = await getUserRole(data.user.id);
+    const role = await getUserRoleClient(data.user.id);
     if (!role) {
       setError("User role not found");
       return;

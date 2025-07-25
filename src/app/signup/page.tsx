@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signUpWithRole } from "@/lib/auth";
+import { signUpWithRoleClient } from "@/lib/auth-client";
 
 const roles = [
   { value: "customer", label: "Customer" },
@@ -22,7 +22,7 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error: signupError } = await signUpWithRole(email, password, role);
+    const { error: signupError } = await signUpWithRoleClient(email, password, role);
     setLoading(false);
     if (signupError) {
       setError(signupError.message || "Signup failed");
