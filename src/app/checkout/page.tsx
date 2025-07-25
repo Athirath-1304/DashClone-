@@ -2,7 +2,7 @@
 import { useCart } from "@/store/cart";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import Image from 'next/image';
 
@@ -54,43 +54,7 @@ export default function CheckoutPage() {
     }, 2000);
   };
 
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase.channel("orders-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setOrderPlaced(true); // Assuming setOrderPlaced is the correct state to update
-            toast.success("New order received!");
-          } else if (payload.eventType === "UPDATE") {
-            setOrders((prev) =>
-              prev.map((o) =>
-                o.id === payload.new.id
-                  ? ({
-                      ...o,
-                      ...payload.new,
-                      items: payload.new.items ?? o.items,
-                      total_price: payload.new.total_price ?? o.total_price,
-                      status: payload.new.status ?? o.status,
-                      created_at: payload.new.created_at ?? o.created_at,
-                    } as Order)
-                  : o
-              )
-            );
-            if (payload.new.status !== payload.old.status) {
-              toast.info(`Order status updated: ${payload.new.status}`);
-            }
-          }
-        }
-      )
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   if (orderPlaced) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import Image from "next/image";
 
