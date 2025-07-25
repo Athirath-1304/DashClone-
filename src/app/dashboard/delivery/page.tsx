@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { toast } from "sonner";
 import Image from "next/image";
 
@@ -24,7 +24,7 @@ export default function DeliveryDashboard() {
   useEffect(() => {
     async function fetchDeliveries() {
       setLoading(true);
-      const supabase = createClient();
+      const supabase = createSupabaseBrowserClient();
       // Get current user
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
@@ -39,10 +39,10 @@ export default function DeliveryDashboard() {
         .order("created_at", { ascending: false });
       // Fix: flatten order if returned as array
       const fixedDeliveries = (deliveryData || []).map((d: unknown) => {
-        const delivery = d as Delivery;
+        const delivery = d as Delivery & { order: unknown };
         return {
           ...delivery,
-          order: Array.isArray((delivery as any).order) ? (delivery as any).order[0] : (delivery as any).order,
+          order: Array.isArray(delivery.order) ? delivery.order[0] : delivery.order,
         };
       });
       setDeliveries(fixedDeliveries);
@@ -86,7 +86,7 @@ export default function DeliveryDashboard() {
   }, []);
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
-    const supabase = createClient();
+    const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from("deliveries").update({ status: newStatus }).eq("id", deliveryId);
     if (error) {
       toast.error("Failed to update delivery status");
