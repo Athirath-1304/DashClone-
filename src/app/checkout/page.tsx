@@ -2,7 +2,7 @@
 import { useCart } from "@/store/cart";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { toast } from "sonner";
 
 export default function CheckoutPage() {
