@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithRoleClient } from "@/lib/auth-client";
-import useSWR from 'swr';
+import useSWR, { mutate as globalMutate } from 'swr';
 
 const roles = [
   { value: "customer", label: "Customer" },
@@ -30,7 +30,7 @@ export default function SignupPage() {
       setError(signupError.message || "Signup failed");
       return;
     }
-    mutate(); // Revalidate stats after successful signup
+    globalMutate('/api/stats'); // Revalidate stats after successful signup
     // Redirect to dashboard based on role
     router.push(`/dashboard/${role}`);
   }
