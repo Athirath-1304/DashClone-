@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithRoleClient } from "@/lib/auth-client";
-import useSWR, { mutate as globalMutate } from 'swr';
+import { mutate as globalMutate } from 'swr';
 
 const roles = [
   { value: "customer", label: "Customer" },
@@ -18,7 +18,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { mutate } = useSWR('/api/stats');
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +32,23 @@ export default function SignupPage() {
     }
     globalMutate('/api/stats'); // Revalidate stats after successful signup
     // Redirect to dashboard based on role
-    router.push(`/dashboard/${role}`);
+    switch (role) {
+      case 'admin':
+        router.push('/admin/dashboard');
+        break;
+      case 'restaurant_owner':
+        router.push('/restaurant/dashboard');
+        break;
+      case 'delivery_agent':
+        router.push('/delivery/dashboard');
+        break;
+      case 'customer':
+        router.push('/restaurants');
+        break;
+      default:
+        // Do nothing if role is undefined or unknown
+        break;
+    }
   }
 
   return (

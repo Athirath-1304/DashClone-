@@ -4,7 +4,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import Image from 'next/image';
 
-interface Order {
+interface RestaurantOrder {
   id: string;
   items: Array<{ id: string; name: string; price: number; quantity: number; image_url: string }>;
   total_price: number;
@@ -14,7 +14,7 @@ interface Order {
 
 export default function RestaurantDashboard() {
   const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<RestaurantOrder[]>([]);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -52,7 +52,7 @@ export default function RestaurantDashboard() {
           { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restData.id}` },
           (payload) => {
             if (payload.eventType === "INSERT") {
-              setOrders((prev) => [payload.new as Order, ...prev]);
+              setOrders((prev) => [payload.new as RestaurantOrder, ...prev]);
               toast.success("New order received!");
             } else if (payload.eventType === "UPDATE") {
               setOrders((prev) =>
@@ -65,7 +65,7 @@ export default function RestaurantDashboard() {
                         total_price: payload.new.total_price ?? o.total_price,
                         status: payload.new.status ?? o.status,
                         created_at: payload.new.created_at ?? o.created_at,
-                      } as Order)
+                      } as RestaurantOrder)
                     : o
                 )
               );

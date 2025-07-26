@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInClient, getUserRoleClient } from "@/lib/auth-client";
+import { signInClient } from "@/lib/auth-client";
+import { createSupabaseBrowserClient } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,13 +21,36 @@ export default function LoginPage() {
       setError(loginError?.message || "Login failed");
       return;
     }
-    // Fetch user role from users table
-    const role = await getUserRoleClient(data.user.id);
-    if (!role) {
-      setError("User role not found");
+    const supabase = createSupabaseBrowserClient();
+    // Get authenticated user
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      setError('Authentication failed.');
+      console.error('Supabase auth error:', userError);
       return;
     }
-    router.push(`/dashboard/${role}`);
+    const user = userData.user;
+    // Fetch role from users table
+    const { data: userMeta, error: roleError } = await supabase.from('users').select('role').eq('id', user.id).single();
+    if (roleError || !userMeta?.role) {
+      setError('Could not determine user role.');
+      console.error('Role fetch error:', roleError, userMeta);
+      return;
+    }
+    const role = userMeta.role;
+    // Redirect to dashboard based on role
+    if (role === 'admin') {
+      router.push('/admin/dashboard');
+    } else if (role === 'restaurant_owner') {
+      router.push('/restaurant/dashboard');
+    } else if (role === 'delivery_agent') {
+      router.push('/delivery/dashboard');
+    } else if (role === 'customer') {
+      router.push('/restaurants');
+    } else {
+      setError('Unknown or undefined role.');
+      console.error('Unknown or undefined role:', role);
+    }
   }
 
   return (

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import RestaurantCard from "@/components/RestaurantCard";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-interface Restaurant {
+interface CustomerRestaurant {
   id: string;
   name: string;
   description: string;
@@ -12,7 +12,7 @@ interface Restaurant {
 
 export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurants, setRestaurants] = useState<CustomerRestaurant[]>([]);
 
   useEffect(() => {
     async function fetchRestaurants() {
@@ -57,7 +57,7 @@ export default function CustomerDashboard() {
                 id={r.id}
                 name={r.name}
                 description={r.description}
-                imageUrl={r.image_url}
+                imageUrl={r.image_url || ''}
               />
             ))}
           </div>

@@ -17,23 +17,23 @@ export default function CartPage() {
           <div className="space-y-4">
             {items.map((item) => (
               <div
-                key={item.id}
+                key={item.dish.id}
                 className="flex items-center bg-white rounded shadow p-3 gap-4"
               >
                 <Image
-                  src={item.image_url}
-                  alt={item.name}
+                  src={item.dish.image_url || ''}
+                  alt={item.dish.name}
                   width={64}
                   height={64}
                   className="w-16 h-16 object-cover rounded"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{item.name}</div>
-                  <div className="text-gray-500 text-sm">${item.price.toFixed(2)}</div>
+                  <div className="font-semibold truncate">{item.dish.name}</div>
+                  <div className="text-gray-500 text-sm">${item.dish.price.toFixed(2)}</div>
                   <div className="flex items-center gap-2 mt-2">
                     <button
                       className="w-7 h-7 rounded bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-lg"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.dish.id, item.quantity - 1)}
                       disabled={item.quantity <= 1}
                     >
                       –
@@ -41,17 +41,17 @@ export default function CartPage() {
                     <span className="w-8 text-center">{item.quantity}</span>
                     <button
                       className="w-7 h-7 rounded bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-lg"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.dish.id, item.quantity + 1)}
                     >
                       +
                     </button>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <div className="font-semibold">${(item.price * item.quantity).toFixed(2)}</div>
+                  <div className="font-semibold">${(item.dish.price * item.quantity).toFixed(2)}</div>
                   <button
                     className="text-xs text-red-500 hover:underline"
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeItem(item.dish.id)}
                   >
                     Remove
                   </button>

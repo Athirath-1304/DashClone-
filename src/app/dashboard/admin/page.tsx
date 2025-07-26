@@ -1,16 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { toast } from "sonner";
-import { Bar } from "react-chartjs-2";
-import Image from "next/image";
+
 import useSWR from 'swr';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { getUserRoleClient } from '@/lib/auth-client';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-interface Order {
+interface AdminOrder {
   id: string;
   customer_id: string;
   restaurant_id: string;
@@ -23,27 +21,39 @@ interface Order {
   deliveries?: Array<{ id: string }>;
 }
 
-interface Agent {
-  id: string;
-  email: string;
-}
 
-interface Restaurant {
-  id: string;
-  name: string;
-  description: string;
-  owner: { email: string };
-  created_at: string;
-  is_approved: boolean;
-}
 
 const fetchStats = async () => {
-  const { data } = await axios.get('/api/stats');
+  const { data } = await axios.get('/api/admin/stats');
   return data;
 };
 
+function groupOrdersByDate(orders: AdminOrder[]) {
+  const map = new Map<string, number>();
+  orders.forEach(order => {
+    const date = new Date(order.created_at).toISOString().split("T")[0];
+    map.set(date, (map.get(date) || 0) + 1);
+  });
+  return Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+}
+
+function OrdersChart({ orders }: { orders: AdminOrder[] }) {
+  const data = groupOrdersByDate(orders);
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" />
+        <YAxis allowDecimals={false} />
+        <Tooltip />
+        <Line type="monotone" dataKey="count" stroke="#4f46e5" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 export default function AdminDashboard() {
-  const { data, error, isLoading, mutate } = useSWR('/api/stats', fetchStats);
+  const { data, error, isLoading } = useSWR('/api/admin/stats', fetchStats);
   const [checkingRole, setCheckingRole] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
@@ -72,7 +82,7 @@ export default function AdminDashboard() {
   if (isLoading) return <div>Loading dashboard data...</div>;
   if (error) return <div className="text-red-500">Failed to load stats. Please try again later.</div>;
 
-  const { customers, restaurants, orders, deliveries, ordersByDay = [], usersByDay = [] } = data;
+  const { customers = 0, restaurants = 0, orders = [], signups = 0 } = data;
 
   return (
     <div className="p-6">
@@ -80,38 +90,14 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-100 p-4 rounded">👥 Customers: {customers}</div>
         <div className="bg-gray-100 p-4 rounded">🍽 Restaurants: {restaurants}</div>
-        <div className="bg-gray-100 p-4 rounded">📦 Orders: {orders}</div>
-        <div className="bg-gray-100 p-4 rounded">🚚 Deliveries: {deliveries}</div>
+        <div className="bg-gray-100 p-4 rounded">📦 Orders (7d): {orders.length}</div>
+        <div className="bg-gray-100 p-4 rounded">📝 Signups (7d): {signups}</div>
       </div>
-      {/* Chart: Orders over last 7 days */}
       <div className="bg-white rounded shadow p-4 mb-8">
-        <h2 className="font-semibold mb-2">Orders (Last 7 Days)</h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={ordersByDay} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="count" name="Orders" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <h2 className="font-semibold mb-2">Orders Per Day (Last 7 Days)</h2>
+        <OrdersChart orders={orders} />
       </div>
-      {/* Chart: User signups over last 7 days */}
-      <div className="bg-white rounded shadow p-4 mb-8">
-        <h2 className="font-semibold mb-2">User Signups (Last 7 Days)</h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={usersByDay} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="count" name="Signups" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      {/* Existing dashboard UI follows */}
+      {/* Chart components will be updated next */}
     </div>
   );
 }
