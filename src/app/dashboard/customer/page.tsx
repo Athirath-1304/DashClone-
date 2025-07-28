@@ -59,48 +59,22 @@ export default function CustomerDashboard() {
 
   const fetchOrders = async () => {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData?.user) {
-        router.replace('/login');
-        return;
-      }
-
-      const { data: userMeta } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userData.user.id)
-        .single();
-
-      if (!userMeta || userMeta.role !== 'customer') {
-        router.replace('/');
-        return;
-      }
-
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          total_price,
-          status,
-          created_at,
-          notes,
-          items,
-          restaurant:restaurant_id (
-            id,
-            name,
-            image_url
-          )
-        `)
-        .eq('customer_id', userData.user.id)
-        .order('created_at', { ascending: false });
-
-      if (orderError) {
+      // Call the new API route
+      const response = await fetch('/api/customer-orders');
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.replace('/login');
+          return;
+        }
         setError('Failed to load orders');
         return;
       }
 
-      setOrders((orderData as unknown as CustomerOrder[]) || []);
+      const data = await response.json();
+      setOrders(data.orders || []);
     } catch (error) {
+      console.error('Error fetching orders:', error);
       setError('An error occurred while loading orders');
     } finally {
       setLoading(false);
