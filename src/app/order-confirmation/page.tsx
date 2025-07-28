@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -23,7 +23,7 @@ interface OrderDetails {
   };
 }
 
-export default function OrderConfirmationPage() {
+function OrderConfirmationContent() {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
@@ -183,5 +183,20 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-20 px-4">
+        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </main>
+    }>
+      <OrderConfirmationContent />
+    </Suspense>
   );
 } 
