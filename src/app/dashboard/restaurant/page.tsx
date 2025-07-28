@@ -19,66 +19,24 @@ export default function RestaurantDashboard() {
   useEffect(() => {
     async function fetchOrders() {
       setLoading(true);
-      const supabase = createSupabaseBrowserClient();
-      // Get current user
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        setLoading(false);
-        return;
-      }
-      // Get restaurant owned by this user
-      const { data: restData } = await supabase
-        .from("restaurants")
-        .select("id")
-        .eq("owner_id", userData.user.id)
-        .single();
-      if (!restData) {
-        setLoading(false);
-        return;
-      }
-      // Fetch orders for this restaurant
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("id, items, total_price, status, created_at")
-        .eq("restaurant_id", restData.id)
-        .order("created_at", { ascending: false });
-      setOrders(orderData || []);
-      setLoading(false);
+      try {
+        // Call the new API route
+        const response = await fetch('/api/restaurant-orders');
+        
+        if (!response.ok) {
+          console.error('Failed to fetch orders:', response.status);
+          setLoading(false);
+          return;
+        }
 
-      // Realtime subscription
-      const channel = supabase.channel("orders-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restData.id}` },
-          (payload) => {
-            if (payload.eventType === "INSERT") {
-              setOrders((prev) => [payload.new as RestaurantOrder, ...prev]);
-              toast.success("New order received!");
-            } else if (payload.eventType === "UPDATE") {
-              setOrders((prev) =>
-                prev.map((o) =>
-                  o.id === payload.new.id
-                    ? ({
-                        ...o,
-                        ...payload.new,
-                        items: payload.new.items ?? o.items,
-                        total_price: payload.new.total_price ?? o.total_price,
-                        status: payload.new.status ?? o.status,
-                        created_at: payload.new.created_at ?? o.created_at,
-                      } as RestaurantOrder)
-                    : o
-                )
-              );
-              if (payload.new.status !== payload.old.status) {
-                toast.info(`Order status updated: ${payload.new.status}`);
-              }
-            }
-          }
-        )
-        .subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
+        const data = await response.json();
+        setOrders(data.orders || []);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        toast.error('Failed to load orders');
+      } finally {
+        setLoading(false);
+      }
     }
     fetchOrders();
   }, []);
