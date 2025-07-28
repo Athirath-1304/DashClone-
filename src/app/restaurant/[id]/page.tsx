@@ -59,9 +59,14 @@ export default function RestaurantDetailPage() {
     addItem({
       id: item.id,
       name: item.name,
+      description: item.description,
       price: item.price,
+      category: 'General',
       image_url: item.image_url,
+      is_available: true,
       restaurant_id: item.restaurant_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
     toast.success("Item added to cart", {
       description: `${item.name} has been added to your cart.`,

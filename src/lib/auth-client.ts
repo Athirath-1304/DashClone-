@@ -2,13 +2,17 @@ import { createSupabaseBrowserClient } from './supabase';
 
 export async function signUpWithRoleClient(email: string, password: string, role: string) {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({ 
+    email, 
+    password,
+    options: {
+      data: {
+        role: role
+      }
+    }
+  });
   if (error || !data.user) {
     return { error };
-  }
-  const { error: dbError } = await supabase.from('users').insert({ id: data.user.id, email, role });
-  if (dbError) {
-    return { error: dbError };
   }
   return { user: data.user };
 }

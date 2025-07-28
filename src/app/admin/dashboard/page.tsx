@@ -24,6 +24,7 @@ interface RecentOrder {
   status: string;
   created_at: string;
   restaurant: { name: string };
+  users?: { email?: string };
 }
 
 export default function AdminDashboard() {
@@ -51,26 +52,54 @@ export default function AdminDashboard() {
     }
     // Fetch stats
     const [{ count: customers }, { count: restaurants }, { count: orders }, { sum: revenue }] = await Promise.all([
-      supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
-      supabase.from('restaurants').select('id', { count: 'exact', head: true }),
-      supabase.from('orders').select('id', { count: 'exact', head: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
+      supabase.from('restaurants').select('*', { count: 'exact', head: true }),
+      supabase.from('orders').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('total_price', { head: true, count: 'exact' }).then(res => ({ sum: res.data?.reduce((acc: number, o: { total_price: number }) => acc + Number(o.total_price || 0), 0) })),
     ]);
+
+    console.log("Orders count:", orders);
+    console.log("Revenue:", revenue);
     setStats({ 
       customers: customers || 0, 
       restaurants: restaurants || 0, 
       orders: orders || 0, 
       revenue: revenue || 0 
     });
-    // Orders by day (last 7 days)
-    const { data: ordersByDayData } = await supabase.rpc('orders_by_day_last_7', {});
+    // Orders by day (last 7 days) - fallback if RPC doesn't exist
+    let ordersByDayData;
+    try {
+      const { data: rpcData } = await supabase.rpc('orders_by_day_last_7', {});
+      ordersByDayData = rpcData;
+    } catch (error) {
+      console.log('RPC function not available, using fallback query');
+      // Fallback: manually group orders by day
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('created_at')
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+      
+      if (allOrders) {
+        const orderCounts = new Map();
+        allOrders.forEach(order => {
+          const date = new Date(order.created_at).toISOString().split('T')[0];
+          orderCounts.set(date, (orderCounts.get(date) || 0) + 1);
+        });
+        ordersByDayData = Array.from(orderCounts.entries()).map(([date, count]) => ({ date, count }));
+      }
+    }
+    console.log("Orders by day data:", ordersByDayData);
     setOrdersByDay(ordersByDayData || []);
     // Recent orders
     const { data: recentOrdersData } = await supabase
       .from('orders')
-      .select('id, total_price, status, created_at, restaurant:restaurant_id (name)')
+      .select('id, total_price, status, created_at, restaurant:restaurant_id (name), users:customer_id (email)')
       .order('created_at', { ascending: false })
       .limit(10);
+    
+    console.log("Recent orders data:", recentOrdersData);
+    console.log("Revenue from recent orders:", recentOrdersData?.reduce((acc, o) => acc + o.total_price, 0));
+    
     setRecentOrders((recentOrdersData as unknown as RecentOrder[]) || []);
     setLoading(false);
   }, [router]);
@@ -135,6 +164,7 @@ export default function AdminDashboard() {
               <tr className="border-b">
                 <th className="py-2">Order ID</th>
                 <th className="py-2">Restaurant</th>
+                <th className="py-2">Customer</th>
                 <th className="py-2">Total</th>
                 <th className="py-2">Status</th>
                 <th className="py-2">Date</th>
@@ -145,6 +175,7 @@ export default function AdminDashboard() {
                 <tr key={order.id} className="border-b hover:bg-gray-50 transition-all duration-200 hover:scale-[1.02] hover:shadow-md">
                   <td className="py-2 font-mono">{order.id.slice(-6)}</td>
                   <td className="py-2">{order.restaurant?.name || '-'}</td>
+                  <td className="py-2">{order.users?.email || '-'}</td>
                   <td className="py-2">${Number(order.total_price).toFixed(2)}</td>
                   <td className="py-2">
                     <StatusBadge status={order.status} />

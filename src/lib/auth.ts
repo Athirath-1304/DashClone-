@@ -2,15 +2,18 @@ import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function signUpWithRole(email: string, password: string, role: string) {
   const supabase = await createSupabaseServerClient();
-  // Sign up user
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  // Sign up user with role in options.data
+  const { data, error } = await supabase.auth.signUp({ 
+    email, 
+    password,
+    options: {
+      data: {
+        role: role
+      }
+    }
+  });
   if (error || !data.user) {
     return { error };
-  }
-  // Insert role into users table
-  const { error: dbError } = await supabase.from('users').insert({ id: data.user.id, email, role });
-  if (dbError) {
-    return { error: dbError };
   }
   return { user: data.user };
 }

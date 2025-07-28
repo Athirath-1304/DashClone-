@@ -20,7 +20,7 @@ export default function Hero() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 w-full max-w-2xl mx-auto bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-10 flex flex-col items-center border border-white/20"
       >
-        <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-4 tracking-tight drop-shadow-xl">
+        <h1 data-testid="landing-title" className="text-4xl md:text-6xl font-extrabold text-white mb-4 tracking-tight drop-shadow-xl">
           DashClone
         </h1>
         <motion.h2

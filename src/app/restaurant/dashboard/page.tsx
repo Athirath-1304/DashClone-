@@ -8,10 +8,10 @@ import { toast } from 'sonner';
 
 
 const statusNext: Record<string, string | null> = {
-  pending: 'preparing',
-  preparing: 'ready',
-  ready: 'completed',
-  completed: null,
+  'PLACED': 'ACCEPTED',
+  'ACCEPTED': 'PICKED_UP',
+  'PICKED_UP': 'DELIVERED',
+  'DELIVERED': null,
 };
 
 type OrderItem = {
@@ -47,7 +47,7 @@ export default function RestaurantDashboard() {
     }
     // Check role
     const { data: userMeta } = await supabase.from('users').select('role').eq('id', userData.user.id).single();
-    if (!userMeta || userMeta.role !== 'restaurant') {
+    if (!userMeta || userMeta.role !== 'restaurant_owner') {
       router.replace('/');
       return;
     }
@@ -102,6 +102,22 @@ export default function RestaurantDashboard() {
     toast.success(`Order marked as ${nextStatus.replace('_', ' ')}!`);
   };
 
+  const acceptOrder = async (orderId: string) => {
+    const supabase = createClientComponentClient();
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'ACCEPTED' })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error(error);
+      toast.error('Failed to accept order');
+    } else {
+      toast.success('Order accepted!');
+      fetchOrders(); // Refresh orders
+    }
+  };
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-600" /></div>;
   }
@@ -135,16 +151,24 @@ export default function RestaurantDashboard() {
               </ul>
             </div>
             <div className="flex items-center gap-4 mt-2">
-              {order.status && statusNext[order.status] && (
+              {order.status === 'PLACED' && (
+                <button
+                  className="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700 transition-all duration-200 hover:scale-105"
+                  onClick={() => acceptOrder(order.id)}
+                >
+                  Accept Order
+                </button>
+              )}
+              {order.status && statusNext[order.status] && order.status !== 'PLACED' && (
                 <button
                   className="px-4 py-2 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all duration-200 hover:scale-105"
                   onClick={() => handleStatusUpdate(order.id, order.status)}
                 >
-                  Mark as {statusNext[order.status]?.replace('_', ' ').charAt(0).toUpperCase() + statusNext[order.status]?.replace('_', ' ').slice(1)}
+                  Mark as {(statusNext[order.status]?.replace('_', ' ') || '').charAt(0).toUpperCase() + (statusNext[order.status]?.replace('_', ' ') || '').slice(1)}
                 </button>
               )}
-              {order.status === 'completed' && (
-                <span className="flex items-center gap-1 text-green-600 font-semibold"><BadgeCheck className="w-5 h-5" /> Completed</span>
+              {order.status === 'DELIVERED' && (
+                <span className="flex items-center gap-1 text-green-600 font-semibold"><BadgeCheck className="w-5 h-5" /> Delivered</span>
               )}
             </div>
           </div>
@@ -156,18 +180,14 @@ export default function RestaurantDashboard() {
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'pending':
-      return <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1"><Clock className="w-4 h-4" /> Pending</Badge>;
-    case 'preparing':
-      return <Badge className="bg-blue-100 text-blue-800 flex items-center gap-1"><ChefHat className="w-4 h-4" /> Preparing</Badge>;
-    case 'ready':
-      return <Badge className="bg-green-100 text-green-800 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Ready</Badge>;
-    case 'out_for_delivery':
-      return <Badge className="bg-orange-100 text-orange-800 flex items-center gap-1"><Truck className="w-4 h-4" /> Out for Delivery</Badge>;
-    case 'delivered':
-      return <Badge className="bg-gray-200 text-gray-600 flex items-center gap-1"><Package className="w-4 h-4" /> Delivered</Badge>;
-    case 'completed':
-      return <Badge className="bg-gray-200 text-gray-600 flex items-center gap-1"><BadgeCheck className="w-4 h-4" /> Completed</Badge>;
+    case 'PLACED':
+      return <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1"><Clock className="w-4 h-4" /> Placed</Badge>;
+    case 'ACCEPTED':
+      return <Badge className="bg-blue-100 text-blue-800 flex items-center gap-1"><ChefHat className="w-4 h-4" /> Accepted</Badge>;
+    case 'PICKED_UP':
+      return <Badge className="bg-orange-100 text-orange-800 flex items-center gap-1"><Truck className="w-4 h-4" /> Picked Up</Badge>;
+    case 'DELIVERED':
+      return <Badge className="bg-green-100 text-green-800 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Delivered</Badge>;
     default:
       return <Badge className="bg-gray-100 text-gray-500">{status}</Badge>;
   }

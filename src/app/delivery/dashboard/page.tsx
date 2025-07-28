@@ -1,232 +1,276 @@
-'use client';
+"use client";
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { BadgeCheck, Truck, CheckCircle, Package } from 'lucide-react';
+import { Loader2, CheckCircle, Truck, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/Skeleton';
 
 interface DeliveryOrder {
   id: string;
   status: string;
   created_at: string;
   customer_id: string;
+  restaurant_id: string;
   delivery_agent_id?: string;
-  items: Array<{
+  total_amount: number;
+  delivery_address: string;
+  delivery_instructions?: string;
+  users?: { email?: string };
+  restaurant?: { name: string };
+  items?: Array<{
     id: string;
     name: string;
     price: number;
     quantity: number;
   }>;
-  users?: {
-    id: string;
-    email: string;
-  };
-}
-
-interface DeliveryUser {
-  id: string;
-  email: string;
-}
-
-function Badge({ className = '', children }: { className?: string; children: React.ReactNode }) {
-  return <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${className}`}>{children}</span>;
-}
-function StatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case 'ready':
-      return <Badge className="bg-green-100 text-green-800 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Ready</Badge>;
-    case 'out_for_delivery':
-      return <Badge className="bg-orange-100 text-orange-800 flex items-center gap-1"><Truck className="w-4 h-4" /> Out for Delivery</Badge>;
-    case 'delivered':
-      return <Badge className="bg-gray-200 text-gray-600 flex items-center gap-1"><Package className="w-4 h-4" /> Delivered</Badge>;
-    default:
-      return <Badge className="bg-gray-100 text-gray-500">{status}</Badge>;
-  }
 }
 
 export default function DeliveryDashboard() {
-  const [availableOrders, setAvailableOrders] = useState<DeliveryOrder[]>([]);
-  const [myDeliveries, setMyDeliveries] = useState<DeliveryOrder[]>([]);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState<DeliveryUser | null>(null);
   const router = useRouter();
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError('');
     const supabase = createClientComponentClient();
+    
+    // Get current user
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
       router.replace('/login');
       return;
     }
-    setUser({
-      id: userData.user.id,
-      email: userData.user.email || ''
-    });
+
     // Check role
-    const { data: userMeta } = await supabase.from('users').select('role').eq('id', userData.user.id).single();
-    if (!userMeta || userMeta.role !== 'delivery') {
+    const { data: userMeta } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+
+    if (!userMeta || userMeta.role !== 'delivery_agent') {
       router.replace('/');
       return;
     }
-    // Fetch available orders
-    const { data: availOrders, error: availError } = await supabase
+
+    // Fetch orders assigned to this delivery agent
+    const { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('*, users:customer_id (id, email)')
-      .eq('status', 'ready')
-      .is('delivery_agent_id', null)
-      .order('created_at', { ascending: false });
-    if (availError) {
-      setError('Failed to fetch available orders.');
-      setLoading(false);
-      return;
-    }
-    setAvailableOrders(availOrders || []);
-    // Fetch my deliveries
-    const { data: myOrders, error: myError } = await supabase
-      .from('orders')
-      .select('*, users:customer_id (id, email)')
+      .select(`
+        *,
+        users:customer_id (id, email),
+        restaurant:restaurant_id (id, name)
+      `)
       .eq('delivery_agent_id', userData.user.id)
       .order('created_at', { ascending: false });
-    if (myError) {
-      setError('Failed to fetch your deliveries.');
+
+    if (orderError) {
+      setError('Failed to fetch orders.');
       setLoading(false);
       return;
     }
-    setMyDeliveries(myOrders || []);
+
+    setOrders(orderData || []);
     setLoading(false);
   }, [router]);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
   useEffect(() => {
     const supabase = createClientComponentClient();
-    const channel = supabase.channel('orders')
+    const channel = supabase.channel('delivery_orders')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'orders',
+        filter: `delivery_agent_id=eq.${supabase.auth.getUser().then(u => u.data.user?.id)}`,
       }, (payload) => {
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           fetchOrders();
         }
       })
       .subscribe();
+
     return () => {
       channel.unsubscribe();
     };
   }, [fetchOrders]);
 
-  const handleAcceptOrder = async (orderId: string) => {
-    if (!user) return;
+  const pickupOrder = async (orderId: string) => {
     const supabase = createClientComponentClient();
-    await supabase.from('orders').update({ status: 'out_for_delivery', delivery_agent_id: user.id }).eq('id', orderId);
-    setAvailableOrders((prev) => prev.filter((o) => o.id !== orderId));
-    const foundOrder = availableOrders.find((o) => o.id === orderId);
-    if (foundOrder) {
-      setMyDeliveries((prev) => [
-        ...prev,
-        { ...foundOrder, status: 'out_for_delivery', delivery_agent_id: user.id }
-      ]);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'PICKED_UP' })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error(error);
+      toast.error('Failed to mark order as picked up');
+    } else {
+      toast.success('Order marked as picked up!');
+      fetchOrders(); // Refresh orders
     }
-    toast.success('Order accepted!');
   };
 
-  const handleMarkDelivered = async (orderId: string) => {
+  const deliverOrder = async (orderId: string) => {
     const supabase = createClientComponentClient();
-    await supabase.from('orders').update({ status: 'delivered' }).eq('id', orderId);
-    setMyDeliveries((prev) => prev.map((o) => o.id === orderId ? { ...o, status: 'delivered' } : o));
-    toast.success('Order marked as delivered!');
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'DELIVERED' })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error(error);
+      toast.error('Failed to mark order as delivered');
+    } else {
+      toast.success('Order marked as delivered!');
+      fetchOrders(); // Refresh orders
+    }
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center"><Skeleton className="h-32 w-full" /></div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
+      </div>
+    );
   }
+
   if (error) {
-    return <div className="p-8 text-red-500 text-center">{error}</div>;
+    return (
+      <div className="p-8 text-red-500 text-center">
+        {error}
+      </div>
+    );
   }
 
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4">
-      <h1 className="text-3xl font-bold mb-8 text-center flex items-center justify-center gap-2"><Truck className="w-7 h-7" /> Delivery Agent Dashboard</h1>
-      <section className="mb-12">
-        <h2 className="text-xl font-semibold mb-4">Available Orders</h2>
-        {availableOrders.length === 0 ? (
-          <div className="text-gray-500">No available orders right now.</div>
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8 text-center flex items-center justify-center gap-2">
+          <Truck className="w-8 h-8 text-indigo-600" />
+          Delivery Dashboard
+        </h1>
+
+        {orders.length === 0 ? (
+          <div className="text-center py-12">
+            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-600 mb-2">No Orders Assigned</h2>
+            <p className="text-gray-500">You don't have any orders assigned to you yet.</p>
+          </div>
         ) : (
           <div className="grid gap-6">
-            {availableOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-xl shadow p-6 border border-gray-100 flex flex-col gap-4 transition-all hover:scale-105 duration-200">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-lg">Order #{order.id.slice(-6)}</div>
-                  <StatusBadge status={order.status} />
+            {orders.map((order) => (
+              <div key={order.id} className="bg-white rounded-xl shadow p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="font-semibold text-lg">Order #{order.id.slice(-6)}</div>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {new Date(order.created_at).toLocaleString()}
+                  </div>
                 </div>
-                <div className="text-gray-500 text-sm mb-2">Placed: {new Date(order.created_at).toLocaleString()}</div>
-                <div className="mb-2">
-                  <div className="font-medium mb-1">Customer: {order.users?.email || order.customer_id}</div>
-                  <ul className="divide-y divide-gray-200">
-                    {(order.items ?? []).map((item: any) => (
-                      <li key={item.id} className="flex justify-between py-2">
+
+                <div className="grid md:grid-cols-2 gap-6 mb-4">
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Restaurant</h3>
+                    <p className="text-gray-600">{order.restaurant?.name || 'Unknown Restaurant'}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Customer</h3>
+                    <p className="text-gray-600">{order.users?.email || order.customer_id}</p>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h3 className="font-medium text-gray-900 mb-2">Delivery Address</h3>
+                  <p className="text-gray-600">{order.delivery_address}</p>
+                  {order.delivery_instructions && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Instructions: {order.delivery_instructions}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <h3 className="font-medium text-gray-900 mb-2">Items</h3>
+                  <ul className="space-y-1">
+                    {(Array.isArray(order.items) ? order.items : []).map((item) => (
+                      <li key={item.id} className="flex justify-between text-sm">
                         <span>{item.name} × {item.quantity}</span>
                         <span>${(item.price * item.quantity).toFixed(2)}</span>
                       </li>
                     ))}
                   </ul>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-medium">
+                      <span>Total</span>
+                      <span>${order.total_amount.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  className="px-4 py-2 rounded bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all duration-200 hover:scale-105"
-                  onClick={() => handleAcceptOrder(order.id)}
-                >
-                  Accept Order
-                </button>
+
+                <div className="flex items-center justify-between">
+                  {order.status === 'ACCEPTED' && (
+                    <button
+                      onClick={() => pickupOrder(order.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <Truck className="w-4 h-4" />
+                      Picked Up
+                    </button>
+                  )}
+                  {order.status === 'PICKED_UP' && (
+                    <button
+                      onClick={() => deliverOrder(order.id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Delivered
+                    </button>
+                  )}
+                  {order.status === 'DELIVERED' && (
+                    <div className="flex items-center gap-2 text-green-600 font-medium">
+                      <CheckCircle className="w-5 h-5" />
+                      Delivered
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
-      </section>
-      <section>
-        <h2 className="text-xl font-semibold mb-4">Your Deliveries</h2>
-        {myDeliveries.length === 0 ? (
-          <div className="text-gray-500">No deliveries assigned yet.</div>
-        ) : (
-          <div className="grid gap-6">
-            {myDeliveries.map((order) => (
-              <div key={order.id} className="bg-white rounded-xl shadow p-6 border border-gray-100 flex flex-col gap-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-lg">Order #{order.id.slice(-6)}</div>
-                  <StatusBadge status={order.status} />
-                </div>
-                <div className="text-gray-500 text-sm mb-2">Placed: {new Date(order.created_at).toLocaleString()}</div>
-                <div className="mb-2">
-                  <div className="font-medium mb-1">Customer: {order.users?.email || order.customer_id}</div>
-                  <ul className="divide-y divide-gray-200">
-                    {(order.items ?? []).map((item: any) => (
-                      <li key={item.id} className="flex justify-between py-2">
-                        <span>{item.name} × {item.quantity}</span>
-                        <span>${(item.price * item.quantity).toFixed(2)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {order.status === 'out_for_delivery' && (
-                  <button
-                    className="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700 transition"
-                    onClick={() => handleMarkDelivered(order.id)}
-                  >
-                    Mark as Delivered
-                  </button>
-                )}
-                {order.status === 'delivered' && (
-                  <span className="flex items-center gap-1 text-green-600 font-semibold"><BadgeCheck className="w-5 h-5" /> Delivered</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
     </main>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'PLACED':
+        return { color: 'bg-yellow-100 text-yellow-800', text: 'Placed' };
+      case 'ACCEPTED':
+        return { color: 'bg-blue-100 text-blue-800', text: 'Accepted' };
+      case 'PICKED_UP':
+        return { color: 'bg-orange-100 text-orange-800', text: 'Picked Up' };
+      case 'DELIVERED':
+        return { color: 'bg-green-100 text-green-800', text: 'Delivered' };
+      default:
+        return { color: 'bg-gray-100 text-gray-800', text: status };
+    }
+  };
+
+  const config = getStatusConfig(status);
+  
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+      {config.text}
+    </span>
   );
 } 
