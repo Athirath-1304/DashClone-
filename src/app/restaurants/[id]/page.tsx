@@ -112,36 +112,36 @@ export default function RestaurantMenuPage({ params }: { params: Promise<{ id: s
 
     setPlacingOrder(true);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error('Please log in to place an order');
-        return;
-      }
-
       const { id: restaurantId } = await params;
       const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-      const { error } = await supabase.from('orders').insert({
-        customer_id: user.id,
-        restaurant_id: restaurantId,
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        total_price: total,
-        status: 'pending',
-        created_at: new Date().toISOString(),
+      // Call the new API route
+      const response = await fetch('/api/place-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          restaurant_id: restaurantId,
+          total_price: total,
+        }),
       });
 
-      if (error) {
-        console.error('Order placement error:', error);
-        toast.error('Failed to place order. Please try again.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Order placement error:', result);
+        toast.error(result.error || 'Failed to place order. Please try again.');
       } else {
-        toast.success('Order placed successfully!');
+        toast.success('Order placed successfully!', {
+          description: `Order #${result.order_id.slice(-8)} has been placed.`,
+        });
         setCart([]); // clear cart
       }
     } catch (err) {
